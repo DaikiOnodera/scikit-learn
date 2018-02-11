@@ -29,6 +29,22 @@ from ..utils import deprecated
 
 MACHINE_EPSILON = np.finfo(np.double).eps
 
+## EDITTED define the funtion for plotting
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import os
+def plot_tsne(p_mat, label, perplexity, epoch):
+    plt.clf()
+    unique_list = list(set(list(label.ravel())))
+    for i in len(unique_list):
+        idx = label.ravel()==unique_list[i]
+        plt.scatter(p_mat[idx, 0], p_mat[idx, 1], colro=cm.get_cmap("Accent").colors[i], alpha=0.7, label=unique_list[i])
+        plt.legend()
+        dirpath = os.getcwd()
+        if not os.path.exists("{dirpath}/images/perp_{perplexity}".format(**locals())):
+            os.makedirs("{dirpath}/images/perp_{perplexity}".format(**locals()))
+        plt.savefig("{dirpath}/images/perp_{perplexity}/epoch_{epoch}".format(**locals()))
+
 
 def _joint_probabilities(distances, desired_perplexity, verbose):
     """Compute joint probabilities p_ij from distances.
@@ -264,10 +280,12 @@ def _kl_divergence_bh(params, P, degrees_of_freedom, n_samples, n_components,
     return error, grad
 
 
+## EDITTED add perplexity and label as args
 def _gradient_descent(objective, p0, it, n_iter,
                       n_iter_check=1, n_iter_without_progress=300,
                       momentum=0.8, learning_rate=200.0, min_gain=0.01,
-                      min_grad_norm=1e-7, verbose=0, args=None, kwargs=None):
+                      min_grad_norm=1e-7, verbose=0, perplexity=30.0, label=None,
+                      args=None, kwargs=None):
     """Batch gradient descent with momentum and individual gains.
 
     Parameters
@@ -368,6 +386,10 @@ def _gradient_descent(objective, p0, it, n_iter,
             toc = time()
             duration = toc - tic
             tic = toc
+            ## EDITTED reshape mapping matrix and define the function for plotting
+            p_mat = p.reshape(-1, 2)
+            plot_tsne(p_mat, label, perplexity, i)
+            ##
 
             if verbose >= 2:
                 print("[t-SNE] Iteration %d: error = %.7f,"
@@ -610,11 +632,13 @@ class TSNE(BaseEstimator):
     # Control the number of iterations between progress checks
     _N_ITER_CHECK = 50
 
+    ## EDITTED add y=None
     def __init__(self, n_components=2, perplexity=30.0,
                  early_exaggeration=12.0, learning_rate=200.0, n_iter=1000,
                  n_iter_without_progress=300, min_grad_norm=1e-7,
                  metric="euclidean", init="random", verbose=0,
-                 random_state=None, method='barnes_hut', angle=0.5):
+                 random_state=None, method='barnes_hut', angle=0.5, y=None):
+    ##
         self.n_components = n_components
         self.perplexity = perplexity
         self.early_exaggeration = early_exaggeration
@@ -628,6 +652,9 @@ class TSNE(BaseEstimator):
         self.random_state = random_state
         self.method = method
         self.angle = angle
+        ## EDITTED add class variable
+        self.label = y
+        ##
 
     def _fit(self, X, skip_num_points=0):
         """Fit the model using X as training data.
@@ -843,6 +870,8 @@ class TSNE(BaseEstimator):
             opt_args['it'] = it + 1
             opt_args['momentum'] = 0.8
             opt_args['n_iter_without_progress'] = self.n_iter_without_progress
+            opt_args["perplexity"] = self.perplexity
+            opt_args["label"] = self.label
             params, kl_divergence, it = _gradient_descent(obj_func, params,
                                                           **opt_args)
 
